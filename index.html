@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Time Vibe</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh; /* Changed to min-height for scrolling if needed */
+            margin: 0;
+        }
+
+        .container { 
+            width: 90%; 
+            max-width: 800px; 
+            text-align: center; 
+            padding-bottom: 50px; /* Space for footer */
+        }
+
+        h1 {
+            font-weight: 200;
+            letter-spacing: 2px;
+            margin-bottom: 40px;
+            color: #888;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 25px;
+            font-size: 1.5rem;
+            background-color: #1e1e1e;
+            border: 2px solid #333;
+            color: #fff;
+            border-radius: 12px;
+            outline: none;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: border-color 0.3s;
+        }
+
+        input:focus { border-color: #007bff; }
+
+        #result {
+            margin-top: 40px;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #00d2ff;
+            text-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+            min-height: 1.2em;
+        }
+        
+        .day-label {
+            display: block;
+            margin-top: 5px;
+            font-size: 1rem;
+            color: #ffaa00; 
+            font-weight: normal;
+            text-shadow: none;
+        }
+
+        /* --- NEW: Helper Text Section --- */
+        .helper-box {
+            margin-top: 60px;
+            text-align: left;
+            background: #181818;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #888;
+            line-height: 1.6;
+            border: 1px solid #222;
+        }
+        .helper-box h3 { margin-top: 0; color: #555; font-size: 0.9rem; text-transform: uppercase; }
+        .helper-box code { color: #00d2ff; background: #222; padding: 2px 5px; border-radius: 4px; }
+
+        /* --- NEW: Sarah Footer --- */
+        .footer {
+            margin-top: 40px;
+            font-size: 0.7rem;
+            color: #444;
+            font-style: italic;
+        }
+
+        #debug {
+            margin-top: 10px;
+            color: #333; /* Made darker to be less intrusive */
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Global Time Converter</h1>
+        <input type="text" id="inputBox" placeholder="e.g. 17:05 Austin to Dublin" autofocus autocomplete="off">
+        <div id="result"></div>
+        <div id="debug"></div>
+
+        <div class="helper-box">
+            <h3>Things you can ask:</h3>
+            <ul>
+                <li><strong>Convert:</strong> <code>17:05 Austin to Dublin</code> or <code>7pm EST to UTC</code></li>
+                <li><strong>Current Time:</strong> <code>Time in India</code> or just <code>Paris</code></li>
+                <li><strong>Future:</strong> <code>in 2 hours in London</code> or <code>in 45 mins in CST</code></li>
+                <li><strong>Past:</strong> <code>2 hours ago in Tokyo</code> or <code>90 mins ago</code></li>
+            </ul>
+        </div>
+
+        <div class="footer">Found a bug? Let Sarah know!</div>
+    </div>
+
+    <script>
+        // --- 1. THE DATABASE ---
+        const zoneDB = {
+            // === USA ZONES ===
+            "est": "America/New_York", "edt": "America/New_York", "eastern": "America/New_York", "et": "America/New_York",
+            "cst": "America/Chicago", "cdt": "America/Chicago", "central": "America/Chicago", "ct": "America/Chicago",
+            "mst": "America/Denver", "mdt": "America/Denver", "mountain": "America/Denver", "mt": "America/Denver",
+            "pst": "America/Los_Angeles", "pdt": "America/Los_Angeles", "pacific": "America/Los_Angeles", "pt": "America/Los_Angeles",
+            
+            // === US STATES ===
+            "alabama": "America/Chicago", "alaska": "America/Anchorage", "arizona": "America/Phoenix", "arkansas": "America/Chicago",
+            "california": "America/Los_Angeles", "ca": "America/Los_Angeles",
+            "colorado": "America/Denver", "connecticut": "America/New_York", "delaware": "America/New_York",
+            "florida": "America/New_York", "fl": "America/New_York", 
+            "georgia": "America/New_York", "hawaii": "Pacific/Honolulu", "idaho": "America/Boise",
+            "illinois": "America/Chicago", "indiana": "America/Indiana/Indianapolis", "iowa": "America/Chicago",
+            "kansas": "America/Chicago", "kentucky": "America/New_York", "louisiana": "America/Chicago",
+            "maine": "America/New_York", "maryland": "America/New_York", "massachusetts": "America/New_York",
+            "michigan": "America/Detroit", "minnesota": "America/Chicago", "mississippi": "America/Chicago",
+            "missouri": "America/Chicago", "montana": "America/Denver", "nebraska": "America/Chicago",
+            "nevada": "America/Los_Angeles", "new hampshire": "America/New_York", "new jersey": "America/New_York",
+            "new mexico": "America/Denver", "new york": "America/New_York", "ny": "America/New_York",
+            "north carolina": "America/New_York", "north dakota": "America/Chicago", "ohio": "America/New_York",
+            "oklahoma": "America/Chicago", "oregon": "America/Los_Angeles", "pennsylvania": "America/New_York",
+            "rhode island": "America/New_York", "south carolina": "America/New_York", "south dakota": "America/Chicago",
+            "tennessee": "America/Chicago", "texas": "America/Chicago", "tx": "America/Chicago",
+            "utah": "America/Denver", "vermont": "America/New_York", "virginia": "America/New_York",
+            "washington": "America/Los_Angeles", "wa": "America/Los_Angeles",
+            "west virginia": "America/New_York", "wisconsin": "America/Chicago", "wyoming": "America/Denver",
+
+            // === US CITIES ===
+            "nyc": "America/New_York", "boston": "America/New_York", "dc": "America/New_York", "washington dc": "America/New_York", "atlanta": "America/New_York", "miami": "America/New_York", "philadelphia": "America/New_York", "detroit": "America/Detroit",
+            "chicago": "America/Chicago", "houston": "America/Chicago", "dallas": "America/Chicago", "austin": "America/Chicago", "san antonio": "America/Chicago", "minneapolis": "America/Chicago", "new orleans": "America/Chicago",
+            "denver": "America/Denver", "phoenix": "America/Phoenix", "salt lake": "America/Denver",
+            "la": "America/Los_Angeles", "los angeles": "America/Los_Angeles", "sf": "America/Los_Angeles", "san francisco": "America/Los_Angeles", "seattle": "America/Los_Angeles", "vegas": "America/Los_Angeles", "las vegas": "America/Los_Angeles", "san diego": "America/Los_Angeles", "portland": "America/Los_Angeles",
+
+            // === WORLD ===
+            "utc": "UTC", "gmt": "UTC", "z": "UTC",
+            "uk": "Europe/London", "london": "Europe/London", "ireland": "Europe/Dublin", "dublin": "Europe/Dublin",
+            "paris": "Europe/Paris", "berlin": "Europe/Berlin", "rome": "Europe/Rome", "madrid": "Europe/Madrid", "amsterdam": "Europe/Amsterdam", "brussels": "Europe/Brussels", "vienna": "Europe/Vienna", "stockholm": "Europe/Stockholm", "oslo": "Europe/Oslo", "zurich": "Europe/Zurich",
+            "athens": "Europe/Athens", "istanbul": "Europe/Istanbul", "cairo": "Africa/Cairo", "jerusalem": "Asia/Jerusalem", "tel aviv": "Asia/Jerusalem", "dubai": "Asia/Dubai", "riyadh": "Asia/Riyadh", "moscow": "Europe/Moscow",
+            "india": "Asia/Kolkata", "ist": "Asia/Kolkata", "mumbai": "Asia/Kolkata", "delhi": "Asia/Kolkata", "bangalore": "Asia/Kolkata",
+            "bangkok": "Asia/Bangkok", "hanoi": "Asia/Bangkok", "jakarta": "Asia/Jakarta",
+            "singapore": "Asia/Singapore", "sg": "Asia/Singapore", "kl": "Asia/Kuala_Lumpur",
+            "hong kong": "Asia/Hong_Kong", "hk": "Asia/Hong_Kong", "beijing": "Asia/Shanghai", "shanghai": "Asia/Shanghai", "taipei": "Asia/Taipei",
+            "tokyo": "Asia/Tokyo", "japan": "Asia/Tokyo", "seoul": "Asia/Seoul", "korea": "Asia/Seoul",
+            "sydney": "Australia/Sydney", "melbourne": "Australia/Melbourne", "brisbane": "Australia/Brisbane", "perth": "Australia/Perth",
+            "auckland": "Pacific/Auckland", "nz": "Pacific/Auckland",
+            "sao paulo": "America/Sao_Paulo", "rio": "America/Sao_Paulo", "buenos aires": "America/Argentina/Buenos_Aires",
+            "mexico city": "America/Mexico_City", "cdmx": "America/Mexico_City",
+            "toronto": "America/Toronto", "vancouver": "America/Vancouver"
+        };
+
+        const inputBox = document.getElementById('inputBox');
+        const resultDiv = document.getElementById('result');
+        const debugDiv = document.getElementById('debug');
+
+        inputBox.addEventListener('keyup', (e) => {
+            runConverter(e.target.value);
+        });
+
+        function runConverter(input) {
+            let text = input.toLowerCase();
+            text = text.replace(/[?.]/g, '');
+            
+            // CLEAN POLITE PHRASES
+            const prefixes = [
+                "what time will it be", "what time was it", "what time is it", "what is the time", 
+                "tell me the time", "current time", "what's the time", "convert", "time in"
+            ];
+            for(let p of prefixes) {
+                if(text.includes(p)) { 
+                    text = text.replace(p, "").trim(); 
+                }
+            }
+
+            // === 1. RELATIVE TIME CHECK (Future AND Past) ===
+            const relative = parseRelativeTime(text);
+            
+            if (relative) {
+                const calculatedDate = relative.date;
+                const cleanText = relative.remainingText;
+                let targetZone = findZone(cleanText);
+                
+                if (!targetZone) targetZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                
+                displayTimestamp(calculatedDate, targetZone, targetZone, relative.isPast ? "Past Time" : "Future Time");
+                debugDiv.innerText = `Calculated: ${relative.desc} -> Converting to ${targetZone}`;
+                return;
+            }
+
+            // === 2. STANDARD LOGIC ===
+            text = text.replace(/ now$/, "").trim();
+            const parts = text.split(/\s+(?:to|in|into)\s+/);
+            
+            let leftRaw = "", rightRaw = "", mode = "unknown";
+
+            if (parts.length >= 2) {
+                leftRaw = parts[0].trim();
+                rightRaw = parts[1].trim();
+                mode = "convert";
+            } else {
+                leftRaw = text;
+                mode = "lookup";
+            }
+
+            if (mode === "convert") {
+                const targetZone = findZone(rightRaw);
+                const timeData = parseTime(leftRaw);
+                if (targetZone) {
+                    const sourceZone = findZone(leftRaw) || Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    let timestamp;
+                    if (timeData) timestamp = getTimestampForZoneTime(timeData.h, timeData.m, sourceZone);
+                    else timestamp = new Date();
+                    
+                    displayTimestamp(timestamp, targetZone, sourceZone, rightRaw);
+                    debugDiv.innerText = `Converting from ${sourceZone}`;
+                } else {
+                    debugDiv.innerText = `Unknown target: "${rightRaw}"`;
+                }
+
+            } else if (mode === "lookup") {
+                const zone = findZone(leftRaw);
+                if (zone) {
+                    displayTimestamp(new Date(), zone, null, leftRaw);
+                    debugDiv.innerText = `Current time in ${zone}`;
+                } else {
+                    const timeData = parseTime(leftRaw);
+                    const possibleZoneName = leftRaw.replace(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|p|a)?/i, "").trim();
+                    const sourceZone = findZone(possibleZoneName);
+                    
+                    if (timeData && sourceZone) {
+                        const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        let timestamp = getTimestampForZoneTime(timeData.h, timeData.m, sourceZone);
+                        displayTimestamp(timestamp, localZone, sourceZone, "Your Local Time");
+                        debugDiv.innerText = `Converting ${leftRaw} to Local`;
+                    } else {
+                         debugDiv.innerText = ""; // Cleaner empty state
+                         resultDiv.innerText = "";
+                    }
+                }
+            }
+        }
+
+        // --- UPDATED: Relative Time Parser (Handles "ago") ---
+        function parseRelativeTime(text) {
+            // Regex for "in X hours" OR "X hours ago"
+            // Group 1: Number
+            // Group 2: Unit
+            // Group 3: "ago" (optional)
+            const regex = /(?:in\s+)?(\d+(?:\.\d+)?)\s+(hour|hr|minute|min)s?(?:\s+(ago))?/i;
+            const match = text.match(regex);
+            
+            if (match) {
+                // If it matches just a number like "17:00", ignore it. We need a unit.
+                if (!match[2]) return null;
+
+                const amount = parseFloat(match[1]);
+                const unit = match[2].toLowerCase();
+                const isPast = !!match[3]; // True if "ago" exists
+                const now = new Date();
+                
+                let modifier = isPast ? -1 : 1;
+                // If the user typed "in...", modifier is positive.
+                // If regex matched "in" at start, but user meant "in 2 hours", standard positive.
+                // If regex matched "ago", modifier negative.
+                
+                // Adjustment
+                let minutesToAdd = 0;
+                if (unit.startsWith("hour") || unit.startsWith("hr")) {
+                    minutesToAdd = amount * 60;
+                } else {
+                    minutesToAdd = amount;
+                }
+
+                now.setMinutes(now.getMinutes() + (minutesToAdd * modifier));
+
+                return {
+                    date: now,
+                    isPast: isPast,
+                    desc: `${isPast ? '-' : '+'}${amount} ${unit}s`,
+                    remainingText: text.replace(match[0], "").trim() // Remove the time part
+                };
+            }
+            return null;
+        }
+
+        // --- UNIFIED DISPLAY FUNCTION ---
+        function displayTimestamp(timestamp, targetZone, sourceZoneForDayCheck, labelRaw) {
+            try {
+                const format24 = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: targetZone, hour: '2-digit', minute: '2-digit', hour12: false
+                }).format(timestamp);
+
+                const format12 = new Intl.DateTimeFormat('en-US', {
+                    timeZone: targetZone, hour: 'numeric', minute: '2-digit', hour12: true, weekday: 'short'
+                }).format(timestamp);
+                
+                // Day Logic: Compare Result Date vs Today (User's Local Date)
+                // This ensures "2 hours ago" correctly shows "Yesterday" if it crosses midnight
+                const userLocalZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const todayString = new Intl.DateTimeFormat('en-CA', { timeZone: userLocalZone }).format(new Date());
+                const resultDateString = new Intl.DateTimeFormat('en-CA', { timeZone: userLocalZone }).format(timestamp);
+                
+                let dayLabel = "";
+                if (resultDateString > todayString) dayLabel = `<span class="day-label">Tomorrow (+1 Day)</span>`;
+                else if (resultDateString < todayString) dayLabel = `<span class="day-label">Yesterday (-1 Day)</span>`;
+
+                resultDiv.innerHTML = `${format24} (${format12}) ${toTitleCase(labelRaw)} ${dayLabel}`;
+            } catch (err) {
+                debugDiv.innerText = "Error: " + err.message;
+            }
+        }
+
+        function findZone(str) {
+            if(!str) return null;
+            if (zoneDB[str]) return zoneDB[str];
+            const keys = Object.keys(zoneDB).sort((a, b) => b.length - a.length);
+            for (const key of keys) {
+                if (str.includes(key)) return zoneDB[key];
+            }
+            return null;
+        }
+
+        function parseTime(str) {
+            const match = str.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|p|a)?/);
+            if (!match) return null;
+            let h = parseInt(match[1]);
+            let m = match[2] ? parseInt(match[2]) : 0;
+            const period = match[3] ? match[3].charAt(0) : null;
+            if (period === 'p' && h < 12) h += 12;
+            if (period === 'a' && h === 12) h = 0;
+            return { h, m };
+        }
+
+        function getTimestampForZoneTime(hour, minute, zone) {
+            const now = new Date();
+            let guess = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute));
+            for (let i = 0; i < 3; i++) {
+                const parts = new Intl.DateTimeFormat('en-US', {
+                    timeZone: zone, hour: 'numeric', minute: 'numeric', hour12: false,
+                    year: 'numeric', month: 'numeric', day: 'numeric'
+                }).formatToParts(guess);
+                let zoneH = 0, zoneM = 0;
+                parts.forEach(p => {
+                    if(p.type === 'hour') zoneH = parseInt(p.value) % 24;
+                    if(p.type === 'minute') zoneM = parseInt(p.value);
+                });
+                let diffMinutes = (hour * 60 + minute) - (zoneH * 60 + zoneM);
+                if (diffMinutes > 720) diffMinutes -= 1440;
+                if (diffMinutes < -720) diffMinutes += 1440;
+                guess = new Date(guess.getTime() + diffMinutes * 60000);
+            }
+            return guess;
+        }
+
+        function toTitleCase(str) {
+            if(!str) return "";
+            return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+        }
+    </script>
+</body>
+</html>
